@@ -36,7 +36,6 @@ fn main() {
         relative_path.to_string_lossy().replace("\\", "/")
     );
 
-    println!("Evaluating: {}", to_eval);
     let res = evaluator.evaluate(to_eval, Some(current_dir));
 
     for err in &res.errors {
