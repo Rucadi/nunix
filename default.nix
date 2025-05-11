@@ -6,4 +6,15 @@
   version = "0.0.0";
   cargoHash = "sha256-3Iv0QhIXxw2FK+FCWNkm7NnlXF20SfOPeXqdMIRS9OM=";
   src = pkgs.lib.cleanSource ./.;
+
+  nativeBuildInputs = [pkgs.pkg-config pkgs.python3];
+  buildInputs =
+    [
+      pkgs.openssl
+      pkgs.zstd
+      pkgs.zlib
+      pkgs.nghttp2
+      pkgs.libgit2
+    ];
+
 }
