@@ -1,6 +1,5 @@
 use clap::Parser;
 use colored_json::ToColoredJson;
-use pathdiff::diff_paths;
 use serde_json::Value as JsonValue;
 use snix_eval::{Evaluation, Value};
 use std::env;
@@ -15,25 +14,50 @@ use std::str;
 ))]
 struct Opt {
     #[arg(value_name = "FILE")]
-    file: Option<String>
+    file: String
 }
+
+
+fn normalize_path(input: &str) -> String {
+    use std::path::PathBuf;
+    use std::path::Path;
+
+    let cwd = env::current_dir().unwrap();
+
+    let p = Path::new(input);
+    let abs = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        cwd.join(p)
+    };
+
+    //  try to compute a relative path from cwd → abs
+    //    fallback to the original input PathBuf if diff_paths returns None
+    let rel: PathBuf = pathdiff::diff_paths(&abs, &cwd)
+        .unwrap_or_else(|| p.to_path_buf());
+
+    //  string‐ify and normalize separators
+    let mut s = rel.to_string_lossy().replace('\\', "/");
+
+    //  ensure it has “./” for plain filenames
+    if !s.starts_with("./") && !s.starts_with("../") && !s.starts_with('/') {
+        s = format!("./{}", s);
+    }
+
+    s
+}
+
 fn main() {
     let opt = Opt::parse();
 
     let current_dir = env::current_dir().expect("Failed to get current directory");
-    let file_path = current_dir.join(opt.file.unwrap_or_else(|| exit_err("No input file")));
-
-    let current_dir =
-        env::current_dir().unwrap_or_else(|e| exit_err(&format!("Couldn't get CWD: {}", e)));
-
-    let relative_path = diff_paths(&file_path, &current_dir)
-        .unwrap_or_else(|| exit_err("Unable to compute relative path"));
-
+    let file_path = normalize_path(&opt.file);
+    
     let evaluator = Evaluation::builder_impure().build();
 
     let to_eval = format!(
         "builtins.toJSON (import {})",
-        relative_path.to_string_lossy().replace("\\", "/")
+        file_path
     );
 
     let res = evaluator.evaluate(to_eval, Some(current_dir));
